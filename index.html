@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Azisly — Customer Segmentation Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.32.0/plotly.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f13;
+    --surface: #17171f;
+    --card: #1e1e28;
+    --border: rgba(255,255,255,0.07);
+    --border-hover: rgba(255,255,255,0.14);
+    --text: #f0f0f4;
+    --text-2: #9898b0;
+    --text-3: #5a5a72;
+    --champ: #1D9E75;
+    --champ-bg: rgba(29,158,117,0.12);
+    --loyal: #378ADD;
+    --loyal-bg: rgba(55,138,221,0.12);
+    --potential: #EF9F27;
+    --potential-bg: rgba(239,159,39,0.12);
+    --risk: #E24B4A;
+    --risk-bg: rgba(226,75,74,0.12);
+    --accent: #7F77DD;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-dot {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: #fff;
+  }
+  .brand-name { font-size: 16px; font-weight: 600; color: var(--text); letter-spacing: -0.3px; }
+  .brand-sub { font-size: 12px; color: var(--text-2); margin-left: 4px; }
+
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+
+  .upload-zone {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(127,119,221,0.1);
+    border: 1px dashed rgba(127,119,221,0.4);
+    border-radius: var(--radius-sm);
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 13px;
+    color: #AFA9EC;
+    font-weight: 500;
+    position: relative;
+  }
+  .upload-zone:hover { background: rgba(127,119,221,0.18); border-color: rgba(127,119,221,0.7); color: #CECBF6; }
+  .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+  .upload-zone svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+  .file-badge {
+    display: none; align-items: center; gap: 6px;
+    background: rgba(29,158,117,0.12);
+    border: 1px solid rgba(29,158,117,0.3);
+    border-radius: var(--radius-sm);
+    padding: 5px 10px; font-size: 12px; color: #5DCAA5;
+  }
+
+  .main { padding: 28px 32px; max-width: 1400px; margin: 0 auto; }
+
+  .page-header { margin-bottom: 24px; }
+  .page-title { font-size: 22px; font-weight: 600; color: var(--text); letter-spacing: -0.5px; }
+  .page-sub { font-size: 13px; color: var(--text-2); margin-top: 4px; }
+  .page-meta { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 24px; }
+
+  .kpi-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .kpi-card:hover { border-color: var(--border-hover); }
+  .kpi-card::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; border-radius: 3px 0 0 3px;
+  }
+  .kpi-card.green::before { background: var(--champ); }
+  .kpi-card.blue::before  { background: var(--loyal); }
+  .kpi-card.amber::before { background: var(--potential); }
+  .kpi-card.red::before   { background: var(--risk); }
+
+  .kpi-label { font-size: 11px; color: var(--text-3); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 8px; }
+  .kpi-value { font-size: 28px; font-weight: 600; color: var(--text); letter-spacing: -0.8px; line-height: 1; }
+  .kpi-sub { font-size: 12px; color: var(--text-2); margin-top: 6px; }
+  .kpi-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 11px; font-weight: 500; padding: 2px 7px;
+    border-radius: 20px; margin-top: 6px;
+  }
+  .badge-green { background: var(--champ-bg); color: #5DCAA5; }
+  .badge-blue  { background: var(--loyal-bg);  color: #85B7EB; }
+  .badge-amber { background: var(--potential-bg); color: #FAC775; }
+  .badge-red   { background: var(--risk-bg);   color: #F09595; }
+
+  .charts-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: border-color 0.2s;
+  }
+  .chart-card:hover { border-color: var(--border-hover); }
+  .chart-card.col-5 { grid-column: span 5; }
+  .chart-card.col-7 { grid-column: span 7; }
+  .chart-card.col-6 { grid-column: span 6; }
+  .chart-card.col-12 { grid-column: span 12; }
+
+  .chart-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+  .chart-title { font-size: 14px; font-weight: 500; color: var(--text); }
+  .chart-desc { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+  .chart-tag {
+    font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 20px;
+    background: rgba(127,119,221,0.12); color: #AFA9EC; flex-shrink: 0;
+  }
+  .chart-body { width: 100%; }
+
+  .seg-legend {
+    display: flex; flex-wrap: wrap; gap: 12px;
+    margin-top: 14px;
+  }
+  .seg-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
+  .seg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .upload-screen {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 60vh; gap: 16px; text-align: center;
+  }
+  .upload-big {
+    width: 420px; max-width: 100%;
+    background: var(--card);
+    border: 2px dashed rgba(127,119,221,0.3);
+    border-radius: 16px;
+    padding: 48px 32px;
+    cursor: pointer; position: relative;
+    transition: all 0.2s;
+  }
+  .upload-big:hover { border-color: rgba(127,119,221,0.6); background: rgba(127,119,221,0.05); }
+  .upload-big input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+  .upload-icon {
+    width: 52px; height: 52px; border-radius: 14px;
+    background: rgba(127,119,221,0.15);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+  }
+  .upload-icon svg { width: 24px; height: 24px; color: #AFA9EC; }
+  .upload-big-title { font-size: 16px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
+  .upload-big-sub { font-size: 13px; color: var(--text-2); }
+  .upload-hint { font-size: 12px; color: var(--text-3); }
+
+  .sample-btn {
+    background: transparent; border: 1px solid var(--border-hover);
+    color: var(--text-2); padding: 8px 18px; border-radius: var(--radius-sm);
+    font-size: 13px; cursor: pointer; transition: all 0.2s;
+  }
+  .sample-btn:hover { background: var(--surface); color: var(--text); }
+
+  .error-toast {
+    display: none;
+    background: var(--risk-bg); border: 1px solid rgba(226,75,74,0.3);
+    border-radius: var(--radius-sm); padding: 10px 14px;
+    color: #F09595; font-size: 13px; margin-top: 10px;
+  }
+
+  #dashboard { display: none; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; padding: 8px 12px;
+    font-size: 11px; font-weight: 500; color: var(--text-3);
+    letter-spacing: 0.05em; text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  td { padding: 9px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); color: var(--text-2); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .seg-pill {
+    display: inline-block; padding: 2px 9px; border-radius: 20px;
+    font-size: 11px; font-weight: 500;
+  }
+
+  @media (max-width: 900px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .chart-card.col-5, .chart-card.col-7, .chart-card.col-6 { grid-column: span 12; }
+    .main { padding: 16px; }
+    .topbar { padding: 0 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-dot">A</div>
+    <span class="brand-name">Azisly</span>
+    <span class="brand-sub">/ Customer Intelligence</span>
+  </div>
+  <div class="topbar-right">
+    <div id="fileBadge" class="file-badge">
+      <svg viewBox="0 0 16 16" fill="none" width="12" height="12"><path d="M2 3a1 1 0 011-1h6l4 4v7a1 1 0 01-1 1H3a1 1 0 01-1-1V3z" stroke="currentColor" stroke-width="1.5"/></svg>
+      <span id="fileName">—</span>
+    </div>
+    <label class="upload-zone">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 5l3-3 3 3M3 11v1a2 2 0 002 2h6a2 2 0 002-2v-1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Upload JSON
+      <input type="file" accept=".json" id="topUpload">
+    </label>
+  </div>
+</div>
+
+<div class="main">
+
+  <div id="uploadScreen" class="upload-screen">
+    <label class="upload-big">
+      <input type="file" accept=".json" id="mainUpload">
+      <div class="upload-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M9 17H7A5 5 0 017 7h1M15 7h1a5 5 0 010 10h-1M9 12h6M12 9v6"/>
+        </svg>
+      </div>
+      <div class="upload-big-title">Upload your customer data</div>
+      <div class="upload-big-sub">Drop a JSON file or click to browse</div>
+    </label>
+    <div class="upload-hint">Expected fields: Customer ID, Spend, Orders, Rating (1-5), Recency (Days)</div>
+    <button class="sample-btn" id="loadSampleBtn">Load sample data (50 customers)</button>
+    <div class="error-toast" id="errorToast"></div>
+  </div>
+
+  <div id="dashboard">
+    <div class="page-header">
+      <div style="display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+        <div>
+          <div class="page-title">Customer segmentation overview</div>
+          <div class="page-sub">RFM-based scoring — Recency · Frequency · Monetary</div>
+        </div>
+        <div class="page-meta" id="metaLine"></div>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card green">
+        <div class="kpi-label">Total customers</div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+        <div class="kpi-sub">Across all segments</div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="kpi-label">Total revenue</div>
+        <div class="kpi-value" id="kpiRevenue">—</div>
+        <div class="kpi-sub">Sum of all spend</div>
+        <div class="kpi-badge badge-blue" id="kpiAvgSpend">—</div>
+      </div>
+      <div class="kpi-card amber">
+        <div class="kpi-label">Avg recency</div>
+        <div class="kpi-value" id="kpiRecency">—</div>
+        <div class="kpi-sub">Days since last order</div>
+        <div class="kpi-badge badge-amber" id="kpiRecencyHint">—</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-label">Avg rating</div>
+        <div class="kpi-value" id="kpiRating">—</div>
+        <div class="kpi-sub">Out of 5.0</div>
+        <div class="kpi-badge badge-green" id="kpiRatingHint">—</div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-card col-5">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Segment distribution</div>
+            <div class="chart-desc">Share of customers per segment</div>
+          </div>
+          <span class="chart-tag">Donut</span>
+        </div>
+        <div class="chart-body" id="chartDonut" style="height:280px;"></div>
+        <div class="seg-legend" id="donutLegend"></div>
+      </div>
+
+      <div class="chart-card col-7">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Avg spend vs avg orders by segment</div>
+            <div class="chart-desc">Revenue and frequency comparison</div>
+          </div>
+          <span class="chart-tag">Bar</span>
+        </div>
+        <div class="chart-body" id="chartBar" style="height:320px;"></div>
+      </div>
+
+      <div class="chart-card col-7">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Spend vs recency scatter</div>
+            <div class="chart-desc">Each dot is one customer, colored by segment</div>
+          </div>
+          <span class="chart-tag">Scatter</span>
+        </div>
+        <div class="chart-body" id="chartScatter" style="height:320px;"></div>
+      </div>
+
+      <div class="chart-card col-5">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Rating distribution</div>
+            <div class="chart-desc">Count of customers per rating value</div>
+          </div>
+          <span class="chart-tag">Histogram</span>
+        </div>
+        <div class="chart-body" id="chartRating" style="height:320px;"></div>
+      </div>
+
+      <div class="chart-card col-12">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Revenue share by segment</div>
+            <div class="chart-desc">Total spend contribution — who drives your revenue</div>
+          </div>
+          <span class="chart-tag">Waterfall</span>
+        </div>
+        <div class="chart-body" id="chartWaterfall" style="height:260px;"></div>
+      </div>
+    </div>
+
+    <div class="chart-card col-12" style="margin-bottom: 24px;">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Customer data table</div>
+          <div class="chart-desc">All customers with segment labels and scores</div>
+        </div>
+        <span class="chart-tag" id="tableCount">—</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Customer</th>
+              <th>Spend</th>
+              <th>Orders</th>
+              <th>Rating</th>
+              <th>Recency</th>
+              <th>Score</th>
+              <th>Segment</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SEG = {
+  'Champions':           { color: '#1D9E75', bg: 'rgba(29,158,117,0.15)', text: '#5DCAA5' },
+  'Loyal Customers':     { color: '#378ADD', bg: 'rgba(55,138,221,0.15)', text: '#85B7EB' },
+  'Potential Loyalists': { color: '#EF9F27', bg: 'rgba(239,159,39,0.15)', text: '#FAC775' },
+  'At-Risk / Lost':      { color: '#E24B4A', bg: 'rgba(226,75,74,0.15)',  text: '#F09595' },
+};
+
+const PLT = {
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(0,0,0,0)',
+  font: { family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif", color: '#9898b0', size: 12 },
+  margin: { t: 10, r: 10, b: 40, l: 50 },
+};
+
+const GRID = { color: 'rgba(255,255,255,0.05)', gridwidth: 1 };
+
+function scoreCol(arr, reverse) {
+  const sorted = [...arr].sort((a,b) => a-b);
+  const n = arr.length;
+  const q1 = sorted[Math.floor(n/3)];
+  const q2 = sorted[Math.floor(2*n/3)];
+  return arr.map(v => {
+    if (reverse) return v <= q1 ? 3 : v <= q2 ? 2 : 1;
+    return v <= q1 ? 1 : v <= q2 ? 2 : 3;
+  });
+}
+
+function assignSegment(score) {
+  if (score >= 8) return 'Champions';
+  if (score >= 6) return 'Loyal Customers';
+  if (score >= 4) return 'Potential Loyalists';
+  return 'At-Risk / Lost';
+}
+
+function detectKeys(sample) {
+  const keys = Object.keys(sample);
+  const find = (hints) => keys.find(k => hints.some(h => k.toLowerCase().includes(h))) || null;
+  return {
+    id:      find(['id','customer']),
+    spend:   find(['spend','revenue','amount','value','monetary']),
+    orders:  find(['order','frequency','purchase','freq','count']),
+    rating:  find(['rating','score','review','satisfaction','rate']),
+    recency: find(['recency','days','recent','last']),
+  };
+}
+
+function processData(raw) {
+  const arr = Array.isArray(raw) ? raw : (raw.customers || raw.data || Object.values(raw));
+  if (!arr.length) throw new Error('No records found in JSON');
+  const K = detectKeys(arr[0]);
+  if (!K.spend || !K.orders || !K.recency) throw new Error('Required fields (Spend, Orders, Recency) not detected. Check your JSON keys.');
+
+  const spendArr   = arr.map(r => +r[K.spend]   || 0);
+  const orderArr   = arr.map(r => +r[K.orders]   || 0);
+  const recencyArr = arr.map(r => +r[K.recency]  || 0);
+  const ratingArr  = arr.map(r => K.rating ? +r[K.rating] || 3 : 3);
+
+  const sS = scoreCol(spendArr, false);
+  const oS = scoreCol(orderArr, false);
+  const rS = scoreCol(recencyArr, true);
+
+  return arr.map((r, i) => ({
+    id:       K.id ? r[K.id] : 'C' + String(i+1).padStart(3,'0'),
+    spend:    spendArr[i],
+    orders:   orderArr[i],
+    rating:   ratingArr[i],
+    recency:  recencyArr[i],
+    spendS:   sS[i], orderS: oS[i], recencyS: rS[i],
+    totalS:   sS[i] + oS[i] + rS[i],
+    segment:  assignSegment(sS[i] + oS[i] + rS[i]),
+  }));
+}
+
+function fmt(n) { return n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : String(Math.round(n)); }
+function fmtRs(n) { return '₹' + fmt(n); }
+
+function renderKPIs(data) {
+  const total = data.length;
+  const totalSpend = data.reduce((s,r) => s+r.spend, 0);
+  const avgSpend = totalSpend / total;
+  const avgRecency = data.reduce((s,r) => s+r.recency, 0) / total;
+  const avgRating = data.reduce((s,r) => s+r.rating, 0) / total;
+
+  document.getElementById('kpiTotal').textContent = total;
+  document.getElementById('kpiRevenue').textContent = fmtRs(totalSpend);
+  document.getElementById('kpiAvgSpend').textContent = 'Avg ' + fmtRs(Math.round(avgSpend)) + ' / customer';
+  document.getElementById('kpiRecency').textContent = Math.round(avgRecency) + 'd';
+  document.getElementById('kpiRecencyHint').textContent = avgRecency < 15 ? 'Active base' : avgRecency < 30 ? 'Moderate activity' : 'Low activity';
+  document.getElementById('kpiRating').textContent = avgRating.toFixed(1);
+  document.getElementById('kpiRatingHint').textContent = avgRating >= 4 ? 'High satisfaction' : avgRating >= 3 ? 'Moderate' : 'Needs attention';
+
+  const segs = Object.keys(SEG);
+  const counts = segs.map(s => data.filter(r => r.segment === s).length);
+  const champions = counts[0]; const loyal = counts[1];
+  document.getElementById('metaLine').textContent =
+    total + ' customers · ' + champions + ' champions · ' + loyal + ' loyal';
+}
+
+function renderDonut(data) {
+  const segs = Object.keys(SEG);
+  const counts = segs.map(s => data.filter(r => r.segment === s).length).filter(c => c > 0);
+  const labels = segs.filter((s,i) => data.filter(r => r.segment === s).length > 0);
+  const colors = labels.map(s => SEG[s].color);
+
+  Plotly.newPlot('chartDonut', [{
+    type: 'pie', hole: 0.62,
+    labels, values: counts,
+    marker: { colors, line: { color: '#17171f', width: 3 } },
+    textinfo: 'none',
+    hovertemplate: '<b>%{label}</b><br>%{value} customers (%{percent})<extra></extra>',
+  }], {
+    ...PLT, margin: { t: 10, r: 10, b: 10, l: 10 },
+    showlegend: false,
+    annotations: [{
+      text: '<b>' + data.length + '</b><br><span style="font-size:11px">customers</span>',
+      x: 0.5, y: 0.5, xref: 'paper', yref: 'paper',
+      showarrow: false, font: { color: '#f0f0f4', size: 20 },
+    }],
+  }, { responsive: true, displayModeBar: false });
+
+  const legend = document.getElementById('donutLegend');
+  legend.innerHTML = labels.map((s,i) => {
+    const pct = Math.round(counts[i]/data.length*100);
+    return `<div class="seg-item"><div class="seg-dot" style="background:${SEG[s].color}"></div>${s} <strong style="color:${SEG[s].color};margin-left:3px">${counts[i]}</strong><span style="color:var(--text-3);margin-left:2px">(${pct}%)</span></div>`;
+  }).join('');
+}
+
+function renderBar(data) {
+  const segs = Object.keys(SEG).filter(s => data.some(r => r.segment === s));
+  const avgSpend = segs.map(s => {
+    const g = data.filter(r => r.segment === s);
+    return Math.round(g.reduce((a,r) => a+r.spend,0)/g.length);
+  });
+  const avgOrders = segs.map(s => {
+    const g = data.filter(r => r.segment === s);
+    return +(g.reduce((a,r) => a+r.orders,0)/g.length).toFixed(1);
+  });
+
+  Plotly.newPlot('chartBar', [
+    {
+      type: 'bar', name: 'Avg spend (₹)', x: segs, y: avgSpend,
+      marker: { color: segs.map(s => SEG[s].color), opacity: 0.85 },
+      yaxis: 'y', hovertemplate: '<b>%{x}</b><br>Avg spend: ₹%{y:,.0f}<extra></extra>',
+    },
+    {
+      type: 'scatter', mode: 'markers+lines', name: 'Avg orders',
+      x: segs, y: avgOrders,
+      marker: { color: '#AFA9EC', size: 9, line: { color: '#7F77DD', width: 2 } },
+      line: { color: 'rgba(127,119,221,0.4)', width: 2, dash: 'dot' },
+      yaxis: 'y2', hovertemplate: '<b>%{x}</b><br>Avg orders: %{y}<extra></extra>',
+    }
+  ], {
+    ...PLT,
+    barmode: 'group',
+    xaxis: { showgrid: false, color: '#5a5a72', tickfont: { size: 11 } },
+    yaxis: { ...GRID, title: { text: 'Avg spend (₹)', font: { size: 11, color: '#5a5a72' } }, tickfont: { size: 11 } },
+    yaxis2: { title: { text: 'Avg orders', font: { size: 11, color: '#AFA9EC' } }, overlaying: 'y', side: 'right', showgrid: false, tickfont: { size: 11, color: '#AFA9EC' } },
+    legend: { x: 0, y: 1.05, orientation: 'h', font: { size: 11 } },
+  }, { responsive: true, displayModeBar: false });
+}
+
+function renderScatter(data) {
+  const segs = Object.keys(SEG).filter(s => data.some(r => r.segment === s));
+  const traces = segs.map(s => {
+    const g = data.filter(r => r.segment === s);
+    return {
+      type: 'scatter', mode: 'markers', name: s,
+      x: g.map(r => r.recency), y: g.map(r => r.spend),
+      text: g.map(r => r.id),
+      marker: {
+        color: SEG[s].color, size: 9, opacity: 0.8,
+        line: { color: 'rgba(255,255,255,0.15)', width: 1 },
+      },
+      hovertemplate: '<b>%{text}</b><br>Recency: %{x} days<br>Spend: ₹%{y:,.0f}<extra></extra>',
+    };
+  });
+
+  Plotly.newPlot('chartScatter', traces, {
+    ...PLT,
+    xaxis: { ...GRID, title: { text: 'Recency (days)', font: { size: 11, color: '#5a5a72' } }, color: '#5a5a72', tickfont: { size: 11 } },
+    yaxis: { ...GRID, title: { text: 'Spend (₹)', font: { size: 11, color: '#5a5a72' } }, color: '#5a5a72', tickfont: { size: 11 } },
+    legend: { font: { size: 11 }, bgcolor: 'rgba(0,0,0,0)', borderwidth: 0 },
+  }, { responsive: true, displayModeBar: false });
+}
+
+function renderRating(data) {
+  const counts = [1,2,3,4,5].map(r => data.filter(d => Math.round(d.rating) === r).length);
+  const colors = counts.map((_,i) => {
+    const stops = ['#E24B4A','#EF9F27','#B4B2A9','#378ADD','#1D9E75'];
+    return stops[i];
+  });
+
+  Plotly.newPlot('chartRating', [{
+    type: 'bar', x: ['1 star','2 stars','3 stars','4 stars','5 stars'], y: counts,
+    marker: { color: colors, opacity: 0.85, line: { color: 'rgba(255,255,255,0.05)', width: 1 } },
+    hovertemplate: '%{x}: <b>%{y} customers</b><extra></extra>',
+    text: counts.map(String), textposition: 'outside',
+    textfont: { color: '#9898b0', size: 12 },
+  }], {
+    ...PLT, margin: { t: 30, r: 10, b: 50, l: 40 },
+    xaxis: { showgrid: false, color: '#5a5a72', tickfont: { size: 11 } },
+    yaxis: { ...GRID, color: '#5a5a72', tickfont: { size: 11 } },
+    showlegend: false,
+  }, { responsive: true, displayModeBar: false });
+}
+
+function renderWaterfall(data) {
+  const segs = Object.keys(SEG).filter(s => data.some(r => r.segment === s));
+  const totals = segs.map(s => data.filter(r => r.segment === s).reduce((a,r) => a+r.spend, 0));
+  const grandTotal = totals.reduce((a,b) => a+b, 0);
+  const pcts = totals.map(t => (t/grandTotal*100).toFixed(1));
+
+  Plotly.newPlot('chartWaterfall', [{
+    type: 'bar',
+    x: segs,
+    y: totals,
+    marker: { color: segs.map(s => SEG[s].color), opacity: 0.85 },
+    text: totals.map((t,i) => '₹' + fmt(t) + '<br>' + pcts[i] + '%'),
+    textposition: 'outside',
+    textfont: { color: '#9898b0', size: 12 },
+    hovertemplate: '<b>%{x}</b><br>Revenue: ₹%{y:,.0f}<extra></extra>',
+  }], {
+    ...PLT, margin: { t: 40, r: 20, b: 50, l: 60 },
+    xaxis: { showgrid: false, color: '#5a5a72', tickfont: { size: 12 } },
+    yaxis: { ...GRID, color: '#5a5a72', tickfont: { size: 11 },
+      title: { text: 'Total spend (₹)', font: { size: 11, color: '#5a5a72' } } },
+    showlegend: false,
+  }, { responsive: true, displayModeBar: false });
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('tableBody');
+  const sorted = [...data].sort((a,b) => b.spend - a.spend);
+  document.getElementById('tableCount').textContent = data.length + ' rows';
+  tbody.innerHTML = sorted.slice(0, 50).map(r => {
+    const s = SEG[r.segment];
+    return `<tr>
+      <td style="color:var(--text);font-weight:500">${r.id}</td>
+      <td style="color:#5DCAA5">₹${r.spend.toLocaleString()}</td>
+      <td>${r.orders}</td>
+      <td>${r.rating}</td>
+      <td>${r.recency}d</td>
+      <td style="color:var(--accent)">${r.totalS}</td>
+      <td><span class="seg-pill" style="background:${s.bg};color:${s.text}">${r.segment}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function buildDashboard(data) {
+  renderKPIs(data);
+  renderDonut(data);
+  renderBar(data);
+  renderScatter(data);
+  renderRating(data);
+  renderWaterfall(data);
+  renderTable(data);
+  document.getElementById('uploadScreen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+}
+
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const raw = JSON.parse(e.target.result);
+      const data = processData(raw);
+      document.getElementById('fileName').textContent = file.name;
+      document.getElementById('fileBadge').style.display = 'flex';
+      document.getElementById('errorToast').style.display = 'none';
+      buildDashboard(data);
+    } catch(err) {
+      const toast = document.getElementById('errorToast');
+      toast.style.display = 'block';
+      toast.textContent = 'Error: ' + err.message;
+    }
+  };
+  reader.readAsText(file);
+}
+
+document.getElementById('mainUpload').addEventListener('change', e => handleFile(e.target.files[0]));
+document.getElementById('topUpload').addEventListener('change', e => handleFile(e.target.files[0]));
+
+document.getElementById('loadSampleBtn').addEventListener('click', () => {
+  const sample = [];
+  const spends = [12000,8000,3000,15000,6000,2000,9500,4000,11000,2500,7000,16000,5000,14000,3500,9000,1000,13000,4500,10500,3000,15500,6500,2500,9800,4200,12500,7000,2000,17000,5200,8700,3000,14500,6000,11000,2500,13500,4800,9200,1500,16000,7500,3500,10000,2200,14000,5800,11500,18000];
+  const orders = [15,10,5,18,8,3,12,6,14,4,9,20,7,17,5,11,2,16,6,13,5,19,8,4,12,6,15,9,3,21,7,10,5,18,8,13,4,16,6,11,2,20,9,5,12,3,17,7,14,22];
+  const ratings = [5,4,3,5,4,2,5,3,4,2,4,5,3,5,3,4,1,5,3,4,2,5,4,2,4,3,5,4,2,5,3,4,2,5,3,4,2,5,3,4,1,5,4,3,4,2,5,3,4,5];
+  const recency = [5,12,30,3,20,45,10,25,8,50,18,2,22,4,28,15,60,6,26,9,35,3,17,40,11,24,7,16,48,1,21,14,38,5,23,10,42,6,27,13,55,2,19,29,9,46,4,22,8,1];
+  for (let i=0;i<50;i++) {
+    sample.push({'Customer ID':'C'+String(i+1).padStart(3,'0'),'Spend (₹)':spends[i],'Orders':orders[i],'Rating (1-5)':ratings[i],'Recency (Days)':recency[i]});
+  }
+  document.getElementById('fileName').textContent = 'sample-data.json';
+  document.getElementById('fileBadge').style.display = 'flex';
+  buildDashboard(processData(sample));
+});
+</script>
+</body>
+</html>
